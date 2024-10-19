@@ -112,6 +112,27 @@ string containNonT(const std::string& target, const std::set<std::string>& subst
     return result;
 }
 
+string containsSubFollow(const std::string& target, const std::set<std::string>& substrings) {
+    // 遍历set中的每个字符串
+    size_t minPosition = target.length() + 1; 
+    string result = "";
+    for (const auto& sub : substrings) {
+        // 使用 find 函数查找子串
+        size_t temp = target.find(sub);
+        if(temp != string::npos && temp < minPosition) {
+            minPosition = temp; // 更新最小位置
+            result = sub;
+        }
+    }
+    if (target.length() > minPosition + result.length()) {
+        if (target[minPosition + result.length()] == '\''){
+            result = result + "'";
+        }
+    }
+    
+    return result;
+}
+
 // Function to find the key of the map
 std::string findKey(const std::map<std::string, std::string> &mymap, const std::string &key) {
     for (auto it = mymap.begin(); it != mymap.end(); ++it) {
@@ -178,6 +199,89 @@ void findFIRST(const std::vector<std::vector<string>> &grammar) {
     }
 }
 
+void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
+    // 文法开始符号，置 $ 于 FOLLOW(S) 中
+    follow[grammar[0][0]].insert("$");
+
+    // 若有产生式 A -> alphaBbeta, 则把 FIRST(beta) 中的所有非 epsilon 加入 FOLLOW(B)中
+    for (const auto& words : grammar) {
+        for (int i = 1; i < words.size(); ++i) {
+            string temp = containsSubFollow(words[i], nonTset);
+            while (temp != "") {
+                string subString = words[i].substr(words[i].find(temp) + temp.length());
+                string temp2 = containsSubFollow(subString, nonTset);
+                if(temp2 == ""){
+                    follow[temp].insert(subString);
+                } else {
+                    size_t pos = subString.find(temp2);
+                    if (pos == 0) {
+                        for(const auto& str : first[temp2]) {
+                            if (str != EPSILON){
+                                follow[temp].insert(str);
+
+                            }
+                        }
+                    } else {
+                        follow[temp].insert(subString.substr(0, pos));
+                    }
+                }  
+                temp = temp2;
+            }
+        }
+    }
+
+    std::map<string, string> equalNonT; 
+
+    // 若有产生式 A -> alphaB, 或有产生式 A -> alphaBbeta, 但是 epsilon \in FIRST(beta), 则把 FOLLOW(A) 中所有元素加入 FOLLOW(B) 中
+    for (const auto& words : grammar) {
+        for (int i = 1; i < words.size(); ++i) {
+            string temp = containsSubFollow(words[i], nonTset);
+            while (temp != "") {
+                string subString = words[i].substr(words[i].find(temp) + temp.length());
+                if (subString == "" && words[0] != temp){
+                    equalNonT[words[0]] = temp;
+                    break;
+                }
+                string temp2 = containsSubFollow(subString, nonTset);
+                if(temp2 != "") {
+                    size_t pos = subString.find(temp2);
+                    if (pos == 0) {
+                        for(const auto& str : first[temp2]) {
+                            if (str == EPSILON){
+                                equalNonT[words[0]] = temp;
+                            }
+                        }
+                    }
+                }  
+                temp = temp2;
+            }
+        }
+    }
+
+    for (auto it = equalNonT.begin(); it != equalNonT.end(); ++it) {
+        for (const auto& str : follow[it->first]) {
+            follow[it->second].insert(str);
+        }
+        string temp = it->second;
+        while (findKey(equalNonT, temp) != "") {
+            for (const auto& str : follow[temp]) {
+                follow[it->second].insert(str);
+            }
+            temp = equalNonT[temp];
+        }
+    }
+
+    // print follow set
+    std::cout << "FOLLOW set:" << endl;
+    for (auto it = follow.begin(); it != follow.end(); ++it) {
+        std::cout << it->first << " -> ";
+        for(auto str : it->second) {
+            std::cout << str << " ";
+        }
+        std::cout << endl;
+    }
+}
+
 int main() {
     int n;
     std::cout << "Please enter the number of grammatical lines: " << std::endl;
@@ -226,6 +330,7 @@ int main() {
     cout << endl;
 
     findFIRST(initG);
+    findFOLLOW(initG);
 
     return 0;
 }
