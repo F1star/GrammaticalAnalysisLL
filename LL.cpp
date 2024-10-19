@@ -1,11 +1,17 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <set>
+#include <map>
 #include <algorithm>
 
 using namespace std;
 
 #define EPSILON "epsilon"
+
+std::set<string> nonTset;
+std::map<std::string, std::set<std::string>> first;
+std::map<std::string, std::set<std::string>> follow;
 
 // Function to split the grammar rule into left and right parts
 std::vector<string> split(const std::string &grammar) {
@@ -27,25 +33,25 @@ std::vector<string> split(const std::string &grammar) {
         rightSide = rightSide.substr(barPos + 1);
         barPos = rightSide.find("|");  
     }
-    
+
     results.push_back(rightSide);
     return results;
 }
 
-// Function to eliminate left recursion from grammar rules
-void eliminateLeftRecursion(std::vector<std::vector<string>> &rules) {
-    for (int i = 0; i < rules.size(); ++i) {
+// Function to eliminate left recursion from grammar grammar
+void eliminateLeftRecursion(std::vector<std::vector<string>> &grammar) {
+    for (int i = 0; i < grammar.size(); ++i) {
         std::vector<string> alpha; // 左递归部分
         std::vector<string> beta;  // 非左递归部分
-        std::string nonTerminal = rules[i][0]; // 当前非终结符
+        std::string nonTerminal = grammar[i][0]; // 当前非终结符
         bool hasLeftRecursion = false;
 
-        for (int j = 1; j < rules[i].size(); ++j) {
-            if (rules[i][j].find(nonTerminal) == 0) {
+        for (int j = 1; j < grammar[i].size(); ++j) {
+            if (grammar[i][j].find(nonTerminal) == 0) {
                 hasLeftRecursion = true;
-                alpha.push_back(rules[i][j].substr(nonTerminal.length())); // 提取左递归部分
+                alpha.push_back(grammar[i][j].substr(nonTerminal.length())); // 提取左递归部分
             } else {
-                beta.push_back(rules[i][j]); // 非左递归部分
+                beta.push_back(grammar[i][j]); // 非左递归部分
             }
         }
 
@@ -54,10 +60,10 @@ void eliminateLeftRecursion(std::vector<std::vector<string>> &rules) {
             std::string newNonTerminal = nonTerminal + "'";
 
             // 生成非左递归规则：A -> B A'
-            rules[i].clear();
-            rules[i].push_back(nonTerminal);
+            grammar[i].clear();
+            grammar[i].push_back(nonTerminal);
             for (const auto& b : beta) {
-                rules[i].push_back(b + newNonTerminal);
+                grammar[i].push_back(b + newNonTerminal);
             }
 
             // 生成左递归规则：A' -> A' alpha | epsilon
@@ -69,8 +75,106 @@ void eliminateLeftRecursion(std::vector<std::vector<string>> &rules) {
             newRule.push_back(EPSILON);
 
             // 添加新规则
-            rules.push_back(newRule);
+            grammar.push_back(newRule);
         }
+    }
+}
+
+// 函数：检查字符串是否包含set中的任意子串
+size_t containsAnySubstring(const std::string& target, const std::set<std::string>& substrings) {
+    // 遍历set中的每个字符串
+    size_t minPosition = target.length() + 1; 
+    for (const auto& sub : substrings) {
+        // 使用 find 函数查找子串
+        size_t temp = target.find(sub);
+        if(temp != string::npos && temp < minPosition) {
+            minPosition = temp; // 更新最小位置
+        }
+    }
+    if (minPosition == target.length() + 1) {
+        return string::npos;  // 没有找到，返回空
+    }
+    return minPosition;
+}
+
+string containNonT(const std::string& target, const std::set<std::string>& substrings) {
+    // 遍历set中的每个字符串 
+    string result = "";
+    for (const auto& sub : substrings) {
+        // 使用 find 函数查找子串
+        size_t temp = target.find(sub);
+        if(temp != string::npos && temp == 0) {
+            if(result.length() < sub.length()) {
+                result = sub;
+            }
+        }
+    }
+    return result;
+}
+
+// Function to find the key of the map
+std::string findKey(const std::map<std::string, std::string> &mymap, const std::string &key) {
+    for (auto it = mymap.begin(); it != mymap.end(); ++it) {
+        if (it->first == key) {
+            return it->first;
+        }
+    }
+    return "";
+}
+
+
+// Function to find the FIRST set
+void findFIRST(const std::vector<std::vector<string>> &grammar) {
+    // 第一遍找 FIRST
+    for (const auto& words : grammar) {
+        for (int i = 1; i < words.size(); ++i) {
+            size_t temp = containsAnySubstring(words[i], nonTset);
+            if (temp == string::npos) {
+                first[words[0]].insert(words[i]);
+            } else if (temp != 0 && words[i].find(words[0] + "'") == string::npos) {
+                first[words[0]].insert(words[i].substr(0, temp));
+            }
+        }  
+    }
+
+    std::map<string, string> equalNonT; 
+
+    // 第二遍找 FIRST
+    for (const auto& words : grammar) {
+        for (int i = 1; i < words.size(); ++i) {
+            string temp = containNonT(words[i], nonTset);
+            if (temp != "") {
+                equalNonT[temp] = words[0];
+            }
+        }  
+    }
+
+    for (auto it = equalNonT.begin(); it != equalNonT.end(); ++it) {
+        for (const auto& str : first[it->first]) {
+            if (str != EPSILON) {
+                first[it->second].insert(str);
+            }
+        }
+        string temp = it->second;
+        while (findKey(equalNonT, temp) != "") {
+            for (const auto& str : first[temp]) {
+                if (str != EPSILON) {
+                    first[it->second].insert(str);
+                }
+            }
+            temp = equalNonT[temp];
+        }
+    }
+
+    // TODO: 完成第三遍找 FIRST （本题用不到，暂时搁置）
+
+    std::cout << "FIRST set:" << endl;
+    for (auto it = first.begin(); it != first.end(); ++it) {
+        std::cout << it->first << " -> ";
+        for(auto str : it->second) {
+            std::cout << str << " ";
+        }
+        std::cout << endl;
     }
 }
 
@@ -81,7 +185,7 @@ int main() {
     cin.ignore();  // 忽略缓冲区中的换行符
     std::vector<string> s(n);
     
-    std::cout << "Enter grammar rules (one per line, e.g., A->Aa|b): " << std::endl;
+    std::cout << "Enter grammar (one per line, e.g., A->Aa|b): " << std::endl;
     for (int i = 0; i < n; ++i) {
         getline(cin, s[i]);
     }
@@ -107,6 +211,21 @@ int main() {
         }
         std::cout << std::endl;
     }
+
+    for (const auto& words : initG) {
+        nonTset.insert(words[0]);
+    }
+
+    cout << endl;
+    cout << "Non-terminal set: " << endl;
+    for (auto word : nonTset) {
+        cout << word << " ";
+    }
+    cout << endl;
+
+    cout << endl;
+
+    findFIRST(initG);
 
     return 0;
 }
