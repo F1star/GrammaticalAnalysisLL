@@ -3,6 +3,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <array>
 #include <algorithm>
 
 using namespace std;
@@ -12,6 +13,7 @@ using namespace std;
 std::set<string> nonTset;
 std::map<std::string, std::set<std::string>> first;
 std::map<std::string, std::set<std::string>> follow;
+std::map<std::string, std::map<std::string, std::array<std::string, 2>>> M; // 预测分析表
 
 // Function to split the grammar rule into left and right parts
 std::vector<string> split(const std::string &grammar) {
@@ -141,8 +143,18 @@ std::string findKey(const std::map<std::string, std::string> &mymap, const std::
         }
     }
     return "";
-}
+} 
 
+void findSet(const std::set<std::array<string, 2>> &myset, const std::string & key){
+    for (auto it : myset) {
+        if(it[0] == key) {
+            for (const auto& str : follow[it[0]]) {
+                follow[it[1]].insert(str);
+            }
+            findSet(myset, it[1]);
+        }
+    }
+}
 
 // Function to find the FIRST set
 void findFIRST(const std::vector<std::vector<string>> &grammar) {
@@ -230,7 +242,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
         }
     }
 
-    std::map<string, string> equalNonT; 
+    std::set<std::array<string, 2>> equalNonT; 
 
     // 若有产生式 A -> alphaB, 或有产生式 A -> alphaBbeta, 但是 epsilon \in FIRST(beta), 则把 FOLLOW(A) 中所有元素加入 FOLLOW(B) 中
     for (const auto& words : grammar) {
@@ -239,7 +251,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
             while (temp != "") {
                 string subString = words[i].substr(words[i].find(temp) + temp.length());
                 if (subString == "" && words[0] != temp){
-                    equalNonT[words[0]] = temp;
+                    equalNonT.insert({words[0], temp});
                     break;
                 }
                 string temp2 = containsSubFollow(subString, nonTset);
@@ -248,7 +260,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
                     if (pos == 0) {
                         for(const auto& str : first[temp2]) {
                             if (str == EPSILON){
-                                equalNonT[words[0]] = temp;
+                                equalNonT.insert({words[0], temp});
                             }
                         }
                     }
@@ -258,17 +270,12 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
         }
     }
 
-    for (auto it = equalNonT.begin(); it != equalNonT.end(); ++it) {
-        for (const auto& str : follow[it->first]) {
-            follow[it->second].insert(str);
+    for (auto it : equalNonT) {
+        for (const auto& str : follow[it[0]]) {
+            follow[it[1]].insert(str);
         }
-        string temp = it->second;
-        while (findKey(equalNonT, temp) != "") {
-            for (const auto& str : follow[temp]) {
-                follow[it->second].insert(str);
-            }
-            temp = equalNonT[temp];
-        }
+        string temp = it[1];
+        findSet(equalNonT, temp);
     }
 
     // print follow set
@@ -279,6 +286,35 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
             std::cout << str << " ";
         }
         std::cout << endl;
+    }
+}
+
+void createPAtable(const std::vector<std::vector<string>> &grammar) {
+    for (const auto& words : grammar) {
+        for (int i = 1; i < words.size(); ++i) {
+            string pos = containsSubFollow(words[i], nonTset);
+            if (pos == "") {
+                if (words[i] != EPSILON) {
+                    M[words[0]][words[i]] = {words[0],words[i]};
+                } else {
+                    for (const auto& str : follow[words[0]]) {
+                        M[words[0]][str] = {words[0], words[i]};
+                    }
+                }
+            } else if (words[i].find(pos) == 0) {
+                for (const auto& str : first[pos]) {
+                    if (str != EPSILON) {
+                        M[words[0]][str] = {words[0], words[i]};
+                    } else {
+                        for (const auto& str2 : follow[words[0]]) {
+                            M[words[0]][str2] = {words[0], words[i]};
+                        }
+                    }
+                }
+            } else {
+                M[words[0]][words[i].substr(0, words[i].find(pos))] = {words[0], words[i]};
+            }
+        }
     }
 }
 
@@ -331,6 +367,8 @@ int main() {
 
     findFIRST(initG);
     findFOLLOW(initG);
+
+
 
     return 0;
 }
