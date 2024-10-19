@@ -6,11 +6,14 @@
 #include <array>
 #include <algorithm>
 
+#include <iomanip>
+
 using namespace std;
 
 #define EPSILON "epsilon"
 
 std::set<string> nonTset;
+std::set<string> Tset;
 std::map<std::string, std::set<std::string>> first;
 std::map<std::string, std::set<std::string>> follow;
 std::map<std::string, std::map<std::string, std::array<std::string, 2>>> M; // 预测分析表
@@ -150,6 +153,7 @@ void findSet(const std::set<std::array<string, 2>> &myset, const std::string & k
         if(it[0] == key) {
             for (const auto& str : follow[it[0]]) {
                 follow[it[1]].insert(str);
+                Tset.insert(str);
             }
             findSet(myset, it[1]);
         }
@@ -164,8 +168,10 @@ void findFIRST(const std::vector<std::vector<string>> &grammar) {
             size_t temp = containsAnySubstring(words[i], nonTset);
             if (temp == string::npos) {
                 first[words[0]].insert(words[i]);
+                Tset.insert(words[i]);
             } else if (temp != 0 && words[i].find(words[0] + "'") == string::npos) {
                 first[words[0]].insert(words[i].substr(0, temp));
+                Tset.insert(words[i].substr(0, temp));
             }
         }  
     }
@@ -186,6 +192,7 @@ void findFIRST(const std::vector<std::vector<string>> &grammar) {
         for (const auto& str : first[it->first]) {
             if (str != EPSILON) {
                 first[it->second].insert(str);
+                Tset.insert(str);
             }
         }
         string temp = it->second;
@@ -193,6 +200,7 @@ void findFIRST(const std::vector<std::vector<string>> &grammar) {
             for (const auto& str : first[temp]) {
                 if (str != EPSILON) {
                     first[it->second].insert(str);
+                    Tset.insert(str);
                 }
             }
             temp = equalNonT[temp];
@@ -222,19 +230,22 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
             while (temp != "") {
                 string subString = words[i].substr(words[i].find(temp) + temp.length());
                 string temp2 = containsSubFollow(subString, nonTset);
-                if(temp2 == ""){
+                if(temp2 == "" && subString != ""){
                     follow[temp].insert(subString);
+                    Tset.insert(subString);
                 } else {
                     size_t pos = subString.find(temp2);
                     if (pos == 0) {
                         for(const auto& str : first[temp2]) {
                             if (str != EPSILON){
                                 follow[temp].insert(str);
+                                Tset.insert(str);
 
                             }
                         }
                     } else {
                         follow[temp].insert(subString.substr(0, pos));
+                        Tset.insert(subString.substr(0, pos));
                     }
                 }  
                 temp = temp2;
@@ -244,7 +255,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
 
     std::set<std::array<string, 2>> equalNonT; 
 
-    // 若有产生式 A -> alphaB, 或有产生式 A -> alphaBbeta, 但是 epsilon \in FIRST(beta), 则把 FOLLOW(A) 中所有元素加入 FOLLOW(B) 中
+    // // 若有产生式 A -> alphaB, 或有产生式 A -> alphaBbeta, 但是 epsilon \in FIRST(beta), 则把 FOLLOW(A) 中所有元素加入 FOLLOW(B) 中
     for (const auto& words : grammar) {
         for (int i = 1; i < words.size(); ++i) {
             string temp = containsSubFollow(words[i], nonTset);
@@ -273,6 +284,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
     for (auto it : equalNonT) {
         for (const auto& str : follow[it[0]]) {
             follow[it[1]].insert(str);
+            Tset.insert(str);
         }
         string temp = it[1];
         findSet(equalNonT, temp);
@@ -313,6 +325,15 @@ void createPAtable(const std::vector<std::vector<string>> &grammar) {
                 }
             } else {
                 M[words[0]][words[i].substr(0, words[i].find(pos))] = {words[0], words[i]};
+            }
+        }
+    }
+    
+    // 错误处理
+    for (const auto& it : nonTset){
+        for (const auto& str : follow[it]) {
+            if (M[it][str][0] == "") {
+                M[it][str] = {"synch", ""};
             }
         }
     }
@@ -368,7 +389,16 @@ int main() {
     findFIRST(initG);
     findFOLLOW(initG);
 
+    createPAtable(initG);
 
+    cout << "\nT set:" << endl;
+    for (const auto & i : Tset) {
+        cout << i << " ";
+    }
+    cout << endl;
 
-    return 0;
+    cout << "\nPlease enter the string to be parsed: " << endl;
+    string str;
+    cin >> str;
+    cout << str;
 }
