@@ -4,6 +4,9 @@
 #include <set>
 #include <map>
 #include <array>
+#include <stack>
+#include <queue>
+#include <regex>
 #include <algorithm>
 
 #include <iomanip>
@@ -17,6 +20,7 @@ std::set<string> Tset;
 std::map<std::string, std::set<std::string>> first;
 std::map<std::string, std::set<std::string>> follow;
 std::map<std::string, std::map<std::string, std::array<std::string, 2>>> M; // 预测分析表
+std::queue<std::string> numSet;
 
 // Function to split the grammar rule into left and right parts
 std::vector<string> split(const std::string &grammar) {
@@ -136,6 +140,15 @@ string containsSubFollow(const std::string& target, const std::set<std::string>&
     }
     
     return result;
+}
+
+string findFirstString(const std::string& target) {
+    for (const auto& it : Tset) {
+        if(target.find(it) == 0) {
+            return it;
+        }
+    }
+    return containsSubFollow(target, nonTset);
 }
 
 // Function to find the key of the map
@@ -339,6 +352,59 @@ void createPAtable(const std::vector<std::vector<string>> &grammar) {
     }
 }
 
+void analysisLL(const std::string &str, const std::string &S) {
+    string input = str;
+    std::regex pattern(R"([0-9]*\.?[0-9]+([eE][-+]?[0-9]+)?)");
+    std::smatch matches;
+    std::string replacement = "num";
+    std::string text = input;
+    while (std::regex_search(text, matches, pattern)) {
+        numSet.push(matches[0]);
+        text = matches.suffix().str();
+    }
+    text = std::regex_replace(input, pattern, replacement);
+
+    std::stack<string> run;
+    std::stack<string> tran;
+    run.push("$");
+    run.push(S);
+    string temp1;
+    string temp2;
+    while (!run.empty()) {
+        temp1 = run.top();
+        temp2 = findFirstString(text);
+        if (temp1 == temp2) {
+            run.pop();
+            text = text.substr(temp2.length());
+            cout << endl;
+        } else {
+            if (M[temp1][temp2][0] == "synch") {
+                cout << "Error" << endl;
+                run.pop();
+            } else if (M[temp1][temp2][0] == "") {
+                cout << "Error" << endl;
+                text = text.substr(temp2.length());
+            } else {
+                cout << M[temp1][temp2][0] << " -> " << M[temp1][temp2][1] << endl;
+                run.pop();
+                if (M[temp1][temp2][1] != EPSILON) {
+                    string tempString = M[temp1][temp2][1];
+                    string temp3 = findFirstString(tempString);
+                    while (temp3 != ""){
+                        tran.push(temp3);
+                        tempString = tempString.substr(temp3.length());
+                        temp3 = findFirstString(tempString);
+                    } 
+                    while (!tran.empty()) {
+                        run.push(tran.top());
+                        tran.pop();
+                    }
+                }
+            }
+        }
+    }
+}
+
 int main() {
     int n;
     std::cout << "Please enter the number of grammatical lines: " << std::endl;
@@ -400,5 +466,9 @@ int main() {
     cout << "\nPlease enter the string to be parsed: " << endl;
     string str;
     cin >> str;
-    cout << str;
+    if (str[str.length()-1] != '$') {
+        str += "$";
+    }
+
+    analysisLL(str, initG[0][0]);
 }
