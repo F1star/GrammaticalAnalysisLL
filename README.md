@@ -71,8 +71,6 @@ int main() {
     for (const auto& words : initG) {
         nonTset.insert(words[0]);
     }
-```
-```cpp
     cout << endl;
     cout << "Non-terminal set: " << endl;
     for (auto word : nonTset) {
@@ -300,8 +298,7 @@ void findFIRST(const std::vector<std::vector<string>> &grammar) {
             }
         }  
     }
-```
-```cpp
+
     std::map<string, string> equalNonT; 
 
     // 第二遍找 FIRST
@@ -384,8 +381,7 @@ void findFOLLOW(const std::vector<std::vector<string>> &grammar) {
             }
         }
     }
-```
-```cpp
+    
     std::set<std::array<string, 2>> equalNonT; 
 
     // // 若有产生式 A -> alphaB, 或有产生式 A -> alphaBbeta, 但是 epsilon \in FIRST(beta), 则把 FOLLOW(A) 中所有元素加入 FOLLOW(B) 中
@@ -468,8 +464,7 @@ void createPAtable(const std::vector<std::vector<string>> &grammar) {
             }
         }
     }
-```
-```cpp
+
     // 错误处理
     for (const auto& it : nonTset){
         for (const auto& str : follow[it]) {
@@ -509,9 +504,8 @@ void analysisLL(const std::string &str, const std::string &S) {
     while (!run.empty()) {
         temp1 = run.top();
         temp2 = findFirstString(text);
-```
-```cpp        
-    if (temp1 == temp2) {
+
+        if (temp1 == temp2) {
             run.pop();
             text = text.substr(temp2.length());
             cout << endl;
@@ -653,8 +647,6 @@ E -> ( num
 E' -> + - epsilon 
 F -> ( num
 T -> ( num
-```
-```
 T' -> * / epsilon
 FOLLOW set:
 E -> $ )
@@ -675,8 +667,6 @@ Please enter the string to be parsed:
 E -> TE'
 T -> FT'
 F -> num
-```
-```
 
 T' -> epsilon
 E' -> +TE'
